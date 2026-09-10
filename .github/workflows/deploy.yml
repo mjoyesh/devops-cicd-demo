@@ -1,0 +1,54 @@
+name: Deploy Website
+
+on:
+  push:
+    branches:
+      - master
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ap-south-1
+  S3_BUCKET: devops-cicd-joyesh-2026-4721
+  CLOUDFRONT_DISTRIBUTION_ID: E3J251MLZAMIF4
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Test
+        run: |
+          test -f index.html
+          test -f style.css
+          test -f script.js
+          echo "All required website files are present"
+
+      - name: Build and Package
+        run: |
+          mkdir -p dist
+          cp index.html dist/
+          cp style.css dist/
+          cp script.js dist/
+          echo "Build completed successfully"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::111194324282:role/github-actions-s3-deploy
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy to S3
+        run: |
+          aws s3 sync dist/ s3://${{ env.S3_BUCKET }} --delete
+
+      - name: Invalidate CloudFront
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ env.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"
